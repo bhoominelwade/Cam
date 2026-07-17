@@ -70,6 +70,24 @@ export function frameToEngine(bounds: Rect, frame: FrameSpace): Rect {
   return { x: cx, y: cy, width: clamp01(x + w) - cx, height: clamp01(y + h) - cy };
 }
 
+export interface RawFaceAngles {
+  pitch: number;
+  roll: number;
+  yaw: number;
+}
+
+/**
+ * Detector head angles → engine space. Mirroring flips the in-plane roll and
+ * the yaw (what reads as "turned left" in the sensor reads as "turned right"
+ * in a mirrored preview); pitch is unaffected. `sign` is a device-tuning knob
+ * (constants.ts) in case the detector's sign convention disagrees on-device.
+ */
+export function anglesToEngine(a: RawFaceAngles, mirrored: boolean, sign: 1 | -1): RawFaceAngles {
+  'worklet';
+  const flip = (mirrored ? -1 : 1) * sign;
+  return { pitch: a.pitch, roll: a.roll * flip, yaw: a.yaw * flip };
+}
+
 /**
  * Engine space → overlay pixels, under an aspect-fill ("cover") preview:
  * the frame is scaled up until it covers the screen and the overflow is

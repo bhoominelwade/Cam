@@ -28,6 +28,8 @@ export interface DetectionBridge {
   celebrate: SharedValue<boolean>;
   /** The single displayed nudge (hysteresis applied); null = no cue. */
   nudge: SharedValue<Nudge | null>;
+  /** Worded cue (closer/back/tilt) for the hint chip; null = none. */
+  hint: SharedValue<Nudge | null>;
   /** Timestamp (ms) the displayed nudge last changed — dwell-time gate. */
   nudgeChangedAtMs: SharedValue<number>;
   /** Target zone rect in engine space; null when not coaching. */
@@ -43,6 +45,7 @@ export function useDetectionBridge(): DetectionBridge {
   const score = useSharedValue(0);
   const celebrate = useSharedValue(false);
   const nudge = useSharedValue<Nudge | null>(null);
+  const hint = useSharedValue<Nudge | null>(null);
   const nudgeChangedAtMs = useSharedValue(0);
   const targetZone = useSharedValue<Rect | null>(null);
 
@@ -56,9 +59,10 @@ export function useDetectionBridge(): DetectionBridge {
       score,
       celebrate,
       nudge,
+      hint,
       nudgeChangedAtMs,
       targetZone,
     }),
-    [faceRect, frameAspect, detectionFps, lastRunAtMs, faceSeenAtMs, score, celebrate, nudge, nudgeChangedAtMs, targetZone],
+    [faceRect, frameAspect, detectionFps, lastRunAtMs, faceSeenAtMs, score, celebrate, nudge, hint, nudgeChangedAtMs, targetZone],
   );
 }

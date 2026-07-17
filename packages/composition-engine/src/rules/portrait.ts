@@ -34,10 +34,20 @@ const PLACEMENT_ZERO_AT = 0.55;
 /** Size deviation (fraction of ideal) beyond which closer/back nudges fire. */
 const SIZE_NUDGE_THRESHOLD = 0.35;
 
+/** Head roll (sideways tilt): free within ±8°, zero angle-marks at 35°. */
+const ROLL_FREE_DEG = 8;
+const ROLL_ZERO_DEG = 35;
+/** Roll beyond this fires a tilt nudge (if a cue slot is free). */
+const ROLL_NUDGE_DEG = 12;
+/** Head yaw (turn): anything up to ±25° reads as a nice 3/4 or straight-on. */
+const YAW_FREE_DEG = 25;
+const YAW_ZERO_DEG = 60;
+
 const CELEBRATE_AT = 85;
 
-const POSITION_WEIGHT = 60;
-const SIZE_WEIGHT = 40;
+const POSITION_WEIGHT = 55;
+const SIZE_WEIGHT = 30;
+const ANGLE_WEIGHT = 15;
 
 function clamp01(n: number): number {
   'worklet';
@@ -85,9 +95,25 @@ export function evaluatePortrait(input: SceneInput): Guidance {
     sizeScore = clamp01((FACE_HEIGHT_MAX - h) / (FACE_HEIGHT_MAX - IDEAL_FACE_HEIGHT - FACE_HEIGHT_BAND));
   }
 
-  const score = Math.round(POSITION_WEIGHT * positionScore + SIZE_WEIGHT * sizeScore);
+  // Angle score: neutral (or unreported) angles get full marks, so detectors
+  // without angle output are never penalized.
+  const roll = face.angles?.roll ?? 0;
+  const yaw = face.angles?.yaw ?? 0;
+  const rollScore =
+    Math.abs(roll) <= ROLL_FREE_DEG
+      ? 1
+      : clamp01(1 - (Math.abs(roll) - ROLL_FREE_DEG) / (ROLL_ZERO_DEG - ROLL_FREE_DEG));
+  const yawScore =
+    Math.abs(yaw) <= YAW_FREE_DEG
+      ? 1
+      : clamp01(1 - (Math.abs(yaw) - YAW_FREE_DEG) / (YAW_ZERO_DEG - YAW_FREE_DEG));
+  const angleScore = 0.7 * rollScore + 0.3 * yawScore;
 
-  // --- nudges (≤ 2 by contract) ---
+  const score = Math.round(
+    POSITION_WEIGHT * positionScore + SIZE_WEIGHT * sizeScore + ANGLE_WEIGHT * angleScore,
+  );
+
+  // --- nudges (≤ 2 by contract; priority: placement, size, tilt) ---
   const nudges: Nudge[] = [];
   if (dist > PLACEMENT_DEADZONE) {
     const dx = target.x - cx;
@@ -104,6 +130,13 @@ export function evaluatePortrait(input: SceneInput): Guidance {
     nudges.push({
       direction: sizeDeviationFrac < 0 ? 'closer' : 'back',
       strength: clamp01(Math.abs(sizeDeviationFrac)),
+    });
+  }
+  // Tilt cue: head rolled clockwise → tilt back to the left, and vice versa.
+  if (nudges.length < 2 && Math.abs(roll) > ROLL_NUDGE_DEG) {
+    nudges.push({
+      direction: roll > 0 ? 'tiltLeft' : 'tiltRight',
+      strength: clamp01(Math.abs(roll) / ROLL_ZERO_DEG),
     });
   }
 

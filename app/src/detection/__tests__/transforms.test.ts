@@ -1,4 +1,4 @@
-import { engineToScreen, frameToEngine, type FrameSpace, type Rect } from '../transforms';
+import { anglesToEngine, engineToScreen, frameToEngine, type FrameSpace, type Rect } from '../transforms';
 
 const approx = (a: Rect, b: Rect, eps = 1e-9) => {
   expect(Math.abs(a.x - b.x)).toBeLessThan(eps);
@@ -63,6 +63,27 @@ describe('frameToEngine', () => {
     expect(r.x).toBe(0);
     expect(r.y + r.height).toBeLessThanOrEqual(1);
     expect(r.width).toBeGreaterThan(0);
+  });
+});
+
+describe('anglesToEngine', () => {
+  const a = { pitch: 5, roll: 20, yaw: -12 };
+
+  test('unmirrored passes through unchanged', () => {
+    expect(anglesToEngine(a, false, 1)).toEqual(a);
+  });
+
+  test('mirroring flips roll and yaw but never pitch', () => {
+    expect(anglesToEngine(a, true, 1)).toEqual({ pitch: 5, roll: -20, yaw: 12 });
+  });
+
+  test('mirroring twice restores the original (involution)', () => {
+    const once = anglesToEngine(a, true, 1);
+    expect(anglesToEngine(once, true, 1)).toEqual(a);
+  });
+
+  test('the device-tuning sign knob flips in-plane angles', () => {
+    expect(anglesToEngine(a, false, -1)).toEqual({ pitch: 5, roll: -20, yaw: 12 });
   });
 });
 

@@ -12,6 +12,8 @@ Runs on the same build as S1 (no native changes — JS hot-reloads).
 - [ ] Arrow never flaps between two directions when you sit near a boundary (300ms dwell should make switches feel deliberate).
 - [ ] At most ONE arrow ever shows; "come closer"/"step back" appears as text under the score, never as a second arrow.
 - [ ] Very small (far) face → "come closer"; face filling the frame → "step back".
+- [ ] **Tilt coaching:** tilt your head noticeably sideways → score dips and a "tilt head left/right" chip appears pointing the correcting way; level up → chip clears, score recovers. If the direction reads backwards, flip `ANGLE_SIGN` in `constants.ts` (hot-reloads).
+- [ ] Turn your head far to the side (looking away) → score dips; slight 3/4 turn costs nothing.
 - [ ] Face lost → badge and guides disappear cleanly; face back → coaching resumes within ~a second.
 - [ ] Everything from the S1 checklist still holds (smoothness, HUD 10–15/s, no thermal collapse).
 

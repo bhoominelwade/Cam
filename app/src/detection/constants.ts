@@ -28,3 +28,5 @@ export const NUDGE_DWELL_MS = 300;
 export const FRONT_PREVIEW_MIRRORED = true;
 /** Clockwise degrees from sensor frame to portrait engine space: 0 | 90 | 180 | 270. */
 export const FRAME_ROTATION_PORTRAIT = 90;
+/** Flip to -1 if tilt cues read backwards on-device (ML Kit sign convention check). */
+export const ANGLE_SIGN: 1 | -1 = 1;

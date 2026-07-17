@@ -30,12 +30,27 @@ export interface NormalizedRect {
 
 export type SubjectKind = 'face' | 'food' | 'object';
 
+/**
+ * Head orientation in degrees, in ENGINE space (mirror-corrected by the
+ * adapter, like all geometry). Convention: `roll` positive = head tilted
+ * clockwise as the user sees themselves; `yaw` positive = face turned toward
+ * the viewer's right; `pitch` positive = looking up. All optional — a
+ * detector that doesn't report angles simply gets no angle-based coaching.
+ */
+export interface FaceAngles {
+  pitch?: number;
+  roll?: number;
+  yaw?: number;
+}
+
 /** One detected subject, already normalized by a detection adapter. */
 export interface Subject {
   kind: SubjectKind;
   boundingBox: NormalizedRect;
   /** Detector confidence in [0, 1], if the detector provides one. */
   confidence?: number;
+  /** Head orientation, faces only. */
+  angles?: FaceAngles;
 }
 
 /** Everything the engine is allowed to know about a frame. */

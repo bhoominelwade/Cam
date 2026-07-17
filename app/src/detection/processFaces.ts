@@ -1,6 +1,7 @@
 import { computeGuidance, type SceneInput } from '@cam/composition-engine';
 import type { Face } from 'react-native-vision-camera-face-detector';
 import {
+  ANGLE_SIGN,
   FACE_LOST_TIMEOUT_MS,
   FRAME_ROTATION_PORTRAIT,
   FRONT_PREVIEW_MIRRORED,
@@ -8,7 +9,7 @@ import {
   SMOOTHING_ALPHA,
 } from './constants';
 import type { DetectionBridge } from './DetectionBridge';
-import { frameToEngine } from './transforms';
+import { anglesToEngine, frameToEngine } from './transforms';
 
 /**
  * Runs on the frame-processor thread. Takes raw detector output, normalizes
@@ -53,6 +54,7 @@ export function processFaces(
       bridge.faceRect.value = null;
       bridge.targetZone.value = null;
       bridge.nudge.value = null;
+      bridge.hint.value = null;
       bridge.score.value = 0;
       bridge.celebrate.value = false;
     }
@@ -80,9 +82,14 @@ export function processFaces(
   bridge.faceRect.value = smoothed;
 
   // --- composition engine (pure, mirror-agnostic by construction) ---
+  const angles = anglesToEngine(
+    { pitch: best.pitchAngle, roll: best.rollAngle, yaw: best.yawAngle },
+    FRONT_PREVIEW_MIRRORED,
+    ANGLE_SIGN,
+  );
   const input: SceneInput = {
     sceneType: 'portrait',
-    subjects: [{ kind: 'face', boundingBox: smoothed }],
+    subjects: [{ kind: 'face', boundingBox: smoothed, angles }],
     frameAspect: bridge.frameAspect.value,
   };
   const guidance = computeGuidance(input);
@@ -94,6 +101,12 @@ export function processFaces(
 
   const zone = guidance.guides.find((g) => g.kind === 'targetZone');
   bridge.targetZone.value = zone?.region ?? null;
+
+  // Worded cue (closer/back/tilt) for the hint chip — may be the second nudge.
+  bridge.hint.value =
+    guidance.nudges.find(
+      (n) => n.direction === 'closer' || n.direction === 'back' || n.direction === 'tiltLeft' || n.direction === 'tiltRight',
+    ) ?? null;
 
   // Nudge hysteresis (ARCH §4): a displayed cue must dwell ≥ NUDGE_DWELL_MS
   // before it can switch or disappear — prevents cue-flapping.

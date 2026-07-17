@@ -20,8 +20,14 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
       setVisible(bridge.faceRect.value != null);
       setScore(bridge.score.value);
       setCelebrate(bridge.celebrate.value);
-      const n = bridge.nudge.value;
-      setSizeHint(n?.direction === 'closer' ? 'move closer' : n?.direction === 'back' ? 'step back' : null);
+      const n = bridge.hint.value;
+      setSizeHint(
+        n?.direction === 'closer' ? 'move closer'
+        : n?.direction === 'back' ? 'step back'
+        : n?.direction === 'tiltLeft' ? 'tilt head left'
+        : n?.direction === 'tiltRight' ? 'tilt head right'
+        : null,
+      );
     }, 250);
     return () => clearInterval(id);
   }, [bridge]);
