@@ -14,6 +14,6 @@ metadata:
 - Stack (ADRs, expensive to reverse): React Native + Expo prebuild + EAS cloud iOS builds (founder is on **Windows, no Mac**), VisionCamera frame processors + ML Kit, Skia + Reanimated overlays, Zustand (slow plane only), pure-TS `packages/composition-engine` (zero deps, the product's soul).
 - Key constraints: $99 Apple Developer account is a **week-1** purchase (EAS ad-hoc provisioning needs it); detection data never enters React state; exactly 3 coordinate spaces with 2 transform utils; no analytics/network SDKs in MVP.
 - Slice order: S0 skeleton → S1 face-tracking spike (**go/no-go gate**) → S2 engine v1 → S3 capture → S4 table stakes → S5 food scene → S6 polish → S7 TestFlight. Work on slice branches (`s0-skeleton`), main stays shippable, merge only when the slice's on-device check passes.
-- Status (2026-07-17): repo skeleton + docs + CI pushed to main; S0 app scaffold in progress on branch `s0-skeleton`. On-device checks require astlin to set up EAS login + Apple Developer account.
+- Status (2026-07-17): skeleton + docs + CI on main (engine contract v1, 5 tests green). S0 scaffold (Expo SDK 57 / RN 0.86 / VisionCamera 5.1.1, CameraScreen with permission flow) pushed on branch `s0-skeleton` — unmerged until astlin runs the on-device check in `e2e-checklists/s0-skeleton.md` (needs Apple Developer account + `eas login`). Next slice after merge: S1 face-tracking spike (go/no-go gate).
 
 Related: [[astlin-founder]]
