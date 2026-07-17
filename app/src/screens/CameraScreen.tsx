@@ -8,6 +8,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
   Camera,
   useAsyncRunner,
@@ -16,6 +17,8 @@ import {
   useFrameOutput,
 } from 'react-native-vision-camera';
 import { useFaceDetector } from 'react-native-vision-camera-face-detector';
+import { CaptureControls } from '../capture/CaptureControls';
+import { useCapture } from '../capture/useCapture';
 import { DETECTION_INTERVAL_MS } from '../detection/constants';
 import { useDetectionBridge } from '../detection/DetectionBridge';
 import { processFaces } from '../detection/processFaces';
@@ -38,6 +41,16 @@ export function CameraScreen() {
   // Don't destructure — Nitro hybrid objects lose their `this` binding.
   const faceDetector = useFaceDetector({ performanceMode: 'fast', cameraFacing: 'front' });
   const asyncRunner = useAsyncRunner();
+  const { photoOutput, capture, status, errorText } = useCapture();
+
+  // White blink over the viewfinder on capture.
+  const flashOpacity = useSharedValue(0);
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
+  const onShutter = useCallback(() => {
+    flashOpacity.value = 0.85;
+    flashOpacity.value = withTiming(0, { duration: 320 });
+    void capture('off');
+  }, [capture, flashOpacity]);
 
   const frameOutput = useFrameOutput({
     enablePreviewSizedOutputBuffers: true,
@@ -116,13 +129,20 @@ export function CameraScreen() {
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={isForeground}
-        outputs={[frameOutput]}
+        outputs={[frameOutput, photoOutput]}
       />
       {layout != null && (
         <OverlayCanvas bridge={bridge} width={layout.width} height={layout.height} />
       )}
+      <Animated.View style={[StyleSheet.absoluteFill, styles.captureFlash, flashStyle]} pointerEvents="none" />
       <ScoreBadge bridge={bridge} />
       <DebugHud bridge={bridge} />
+      {errorText != null && (
+        <View style={styles.errorChip}>
+          <Text style={styles.errorText}>{errorText}</Text>
+        </View>
+      )}
+      <CaptureControls mode="portrait" onShutter={onShutter} disabled={status === 'capturing'} />
     </View>
   );
 }
@@ -131,6 +151,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  captureFlash: {
+    backgroundColor: '#fff',
+  },
+  errorChip: {
+    position: 'absolute',
+    bottom: 200,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(80,80,85,0.5)',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  errorText: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 12,
+    fontWeight: '500',
   },
   fallback: {
     flex: 1,

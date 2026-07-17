@@ -52,7 +52,7 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 196,
     alignSelf: 'center',
     alignItems: 'center',
     gap: 8,

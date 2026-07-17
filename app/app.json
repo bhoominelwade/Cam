@@ -10,7 +10,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.astlin.cam",
       "infoPlist": {
-        "NSCameraUsageDescription": "Cam uses the camera to show your live viewfinder and coach your shot. Nothing ever leaves your phone."
+        "NSCameraUsageDescription": "Cam uses the camera to show your live viewfinder and coach your shot. Nothing ever leaves your phone.",
+        "NSPhotoLibraryAddUsageDescription": "Cam saves the photos you take straight to your library. It never reads your existing photos."
       }
     },
     "android": {
@@ -27,7 +28,13 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Cam saves the photos you take straight to your library. It never reads your existing photos."
+        }
+      ]
     ],
     "extra": {
       "eas": {
