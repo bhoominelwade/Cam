@@ -9,12 +9,12 @@ import type { DetectionBridge } from '../detection/DetectionBridge';
  */
 export function DebugHud({ bridge }: { bridge: DetectionBridge }) {
   const [fps, setFps] = useState(0);
-  const [tracking, setTracking] = useState(false);
+  const [scene, setScene] = useState('—');
 
   useEffect(() => {
     const id = setInterval(() => {
       setFps(Math.round(bridge.detectionFps.value));
-      setTracking(bridge.faceRect.value != null);
+      setScene(bridge.subjectRect.value == null ? '—' : bridge.scene.value);
     }, 500);
     return () => clearInterval(id);
   }, [bridge]);
@@ -24,7 +24,7 @@ export function DebugHud({ bridge }: { bridge: DetectionBridge }) {
   return (
     <View style={styles.hud} pointerEvents="none">
       <Text style={styles.text}>
-        det {fps}/s {tracking ? '· face' : '· —'}
+        det {fps}/s · {scene}
       </Text>
     </View>
   );

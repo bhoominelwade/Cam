@@ -1,6 +1,7 @@
 import type { Nudge } from '@cam/composition-engine';
 import { useMemo } from 'react';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
+import type { Scene } from './sceneArbitration';
 import type { Rect } from './transforms';
 
 /**
@@ -10,8 +11,8 @@ import type { Rect } from './transforms';
  * UI thread. They must never be copied into React state on the hot path.
  */
 export interface DetectionBridge {
-  /** Smoothed face bounds in engine space; null when no face is tracked. */
-  faceRect: SharedValue<Rect | null>;
+  /** Smoothed bounds of the tracked subject (face or dish), engine space. */
+  subjectRect: SharedValue<Rect | null>;
   /** width / height of the frame in engine (display) orientation. */
   frameAspect: SharedValue<number>;
   /** Sensor→engine rotation for the ACTIVE camera (set on flip, ADR-006 slow→fast handoff). */
@@ -22,10 +23,21 @@ export interface DetectionBridge {
   detectionFps: SharedValue<number>;
   /** Timestamp (ms) of the last detector run — used for throttling. */
   lastRunAtMs: SharedValue<number>;
-  /** Timestamp (ms) a face was last seen — used for the lost-face timeout. */
-  faceSeenAtMs: SharedValue<number>;
+  /** Timestamp (ms) the subject was last seen — used for the lost timeout. */
+  subjectSeenAtMs: SharedValue<number>;
 
-  // --- engine guidance (S2) ---
+  // --- salient-object signal (written from the object output, JS thread) ---
+  /** Latest salient-subject bounds in engine space. */
+  salientRect: SharedValue<Rect | null>;
+  /** Timestamp (ms) the salient subject was last reported. */
+  salientSeenAtMs: SharedValue<number>;
+
+  // --- scene arbitration state (ARCH §3 state machine) ---
+  scene: SharedValue<Scene>;
+  sceneCandidate: SharedValue<Scene>;
+  sceneCandidateSinceMs: SharedValue<number>;
+
+  // --- engine guidance ---
   /** Composition score 0–100 from the engine. */
   score: SharedValue<number>;
   /** True when the shot is worth celebrating (green moment). */
@@ -41,13 +53,18 @@ export interface DetectionBridge {
 }
 
 export function useDetectionBridge(): DetectionBridge {
-  const faceRect = useSharedValue<Rect | null>(null);
+  const subjectRect = useSharedValue<Rect | null>(null);
   const frameAspect = useSharedValue(3 / 4);
   const rotation = useSharedValue<0 | 90 | 180 | 270>(90);
   const isMirrored = useSharedValue(true);
   const detectionFps = useSharedValue(0);
   const lastRunAtMs = useSharedValue(0);
-  const faceSeenAtMs = useSharedValue(0);
+  const subjectSeenAtMs = useSharedValue(0);
+  const salientRect = useSharedValue<Rect | null>(null);
+  const salientSeenAtMs = useSharedValue(0);
+  const scene = useSharedValue<Scene>('generic');
+  const sceneCandidate = useSharedValue<Scene>('generic');
+  const sceneCandidateSinceMs = useSharedValue(0);
   const score = useSharedValue(0);
   const celebrate = useSharedValue(false);
   const nudge = useSharedValue<Nudge | null>(null);
@@ -57,13 +74,18 @@ export function useDetectionBridge(): DetectionBridge {
 
   return useMemo(
     () => ({
-      faceRect,
+      subjectRect,
       frameAspect,
       rotation,
       isMirrored,
       detectionFps,
       lastRunAtMs,
-      faceSeenAtMs,
+      subjectSeenAtMs,
+      salientRect,
+      salientSeenAtMs,
+      scene,
+      sceneCandidate,
+      sceneCandidateSinceMs,
       score,
       celebrate,
       nudge,
@@ -71,6 +93,6 @@ export function useDetectionBridge(): DetectionBridge {
       nudgeChangedAtMs,
       targetZone,
     }),
-    [faceRect, frameAspect, rotation, isMirrored, detectionFps, lastRunAtMs, faceSeenAtMs, score, celebrate, nudge, hint, nudgeChangedAtMs, targetZone],
+    [subjectRect, frameAspect, rotation, isMirrored, detectionFps, lastRunAtMs, subjectSeenAtMs, salientRect, salientSeenAtMs, scene, sceneCandidate, sceneCandidateSinceMs, score, celebrate, nudge, hint, nudgeChangedAtMs, targetZone],
   );
 }

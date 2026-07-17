@@ -3,4 +3,5 @@ export * from './invariants';
 export * from './computeGuidance';
 export * from './rules/types';
 export * from './rules/portrait';
+export * from './rules/food';
 export * from './rules/generic';

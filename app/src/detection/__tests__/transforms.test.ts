@@ -66,6 +66,32 @@ describe('frameToEngine', () => {
   });
 });
 
+describe('normalizedToEngine (salient objects)', () => {
+  const { normalizedToEngine } = require('../transforms') as typeof import('../transforms');
+  const r = { x: 0.1, y: 0.2, width: 0.3, height: 0.4 };
+
+  test('no flips passes through', () => {
+    const out = normalizedToEngine(r, false, false);
+    expect(out.x).toBeCloseTo(r.x, 9);
+    expect(out.y).toBeCloseTo(r.y, 9);
+    expect(out.width).toBeCloseTo(r.width, 9);
+    expect(out.height).toBeCloseTo(r.height, 9);
+  });
+
+  test('bottom-left-origin Y flip', () => {
+    const out = normalizedToEngine(r, true, false);
+    expect(out.y).toBeCloseTo(1 - (0.2 + 0.4), 9);
+    expect(out.x).toBeCloseTo(0.1, 9);
+  });
+
+  test('mirror flips X; double transform restores', () => {
+    const once = normalizedToEngine(r, true, true);
+    const twice = normalizedToEngine(once, true, true);
+    expect(twice.x).toBeCloseTo(r.x, 9);
+    expect(twice.y).toBeCloseTo(r.y, 9);
+  });
+});
+
 describe('anglesToEngine', () => {
   const a = { pitch: 5, roll: 20, yaw: -12 };
 

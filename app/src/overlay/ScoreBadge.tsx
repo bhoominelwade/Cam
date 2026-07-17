@@ -17,15 +17,16 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      setVisible(bridge.faceRect.value != null);
+      setVisible(bridge.subjectRect.value != null);
       setScore(bridge.score.value);
       setCelebrate(bridge.celebrate.value);
       const n = bridge.hint.value;
+      const food = bridge.scene.value === 'food';
       setSizeHint(
         n?.direction === 'closer' ? 'move closer'
         : n?.direction === 'back' ? 'step back'
-        : n?.direction === 'tiltLeft' ? 'tilt head left'
-        : n?.direction === 'tiltRight' ? 'tilt head right'
+        : n?.direction === 'tiltLeft' ? (food ? 'level the phone' : 'tilt head left')
+        : n?.direction === 'tiltRight' ? (food ? 'level the phone' : 'tilt head right')
         : null,
       );
     }, 250);

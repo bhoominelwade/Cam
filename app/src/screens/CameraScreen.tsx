@@ -15,15 +15,17 @@ import {
   useCameraDevice,
   useCameraPermission,
   useFrameOutput,
+  useObjectOutput,
 } from 'react-native-vision-camera';
 import { useFaceDetector } from 'react-native-vision-camera-face-detector';
 import { BlurView } from 'expo-blur';
 import { CaptureControls } from '../capture/CaptureControls';
 import { useCapture } from '../capture/useCapture';
-import { CAMERA_TUNING, DETECTION_INTERVAL_MS } from '../detection/constants';
+import { CAMERA_TUNING, DETECTION_INTERVAL_MS, SALIENT_Y_FLIP } from '../detection/constants';
 import { useAppStore } from '../state/store';
 import { useDetectionBridge } from '../detection/DetectionBridge';
 import { processFaces } from '../detection/processFaces';
+import { normalizedToEngine } from '../detection/transforms';
 import { DebugHud } from '../overlay/DebugHud';
 import { OverlayCanvas } from '../overlay/OverlayCanvas';
 import { ScoreBadge } from '../overlay/ScoreBadge';
@@ -54,12 +56,33 @@ export function CameraScreen() {
     const tuning = CAMERA_TUNING[position === 'front' ? 'front' : 'back'];
     bridge.rotation.value = tuning.rotation;
     bridge.isMirrored.value = tuning.mirrored;
-    bridge.faceRect.value = null; // drop stale geometry from the other camera
+    bridge.subjectRect.value = null; // drop stale geometry from the other camera
     bridge.targetZone.value = null;
     bridge.nudge.value = null;
     bridge.hint.value = null;
   }, [position, bridge]);
   const { photoOutput, capture, status, errorText } = useCapture();
+
+  // Salient-subject signal for food-scene arbitration (S5). The callback is
+  // tiny and event-driven; it only writes shared values, never React state.
+  const objectOutput = useObjectOutput({
+    types: ['salient-object'],
+    onObjectsScanned(objects) {
+      const o = objects.find((x) => x.type === 'salient-object') ?? objects[0];
+      if (o == null) return;
+      bridge.salientRect.value = normalizedToEngine(o.boundingBox, SALIENT_Y_FLIP, bridge.isMirrored.value);
+      bridge.salientSeenAtMs.value = Date.now();
+    },
+  });
+
+  // Reflect the arbitrated scene into the slow-plane store (mode label).
+  const setSceneMode = useAppStore((s) => s.setSceneMode);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSceneMode(bridge.scene.value === 'food' ? 'food' : 'portrait');
+    }, 250);
+    return () => clearInterval(id);
+  }, [bridge, setSceneMode]);
 
   // White blink over the viewfinder on capture.
   const flashOpacity = useSharedValue(0);
@@ -147,7 +170,7 @@ export function CameraScreen() {
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={isForeground}
-        outputs={[frameOutput, photoOutput]}
+        outputs={[frameOutput, photoOutput, objectOutput]}
         enableNativeTapToFocusGesture
         enableNativeZoomGesture
       />

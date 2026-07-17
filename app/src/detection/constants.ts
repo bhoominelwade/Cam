@@ -19,6 +19,15 @@ export const FACE_LOST_TIMEOUT_MS = 300;
 /** Minimum time a nudge stays on screen before it may switch or clear (ARCH §4). */
 export const NUDGE_DWELL_MS = 300;
 
+/** How long a salient-object report stays "fresh" for scene arbitration. */
+export const SALIENT_FRESH_MS = 500;
+
+/**
+ * Salient-object coordinate knobs (Apple Vision reports normalized coords
+ * with a bottom-left origin on iOS — verified/tuned on-device in S5).
+ */
+export const SALIENT_Y_FLIP = true;
+
 /**
  * §8.4 gotcha knobs — expected values for iPhone portrait orientation.
  * Sensors deliver landscape frames; the front preview is mirrored. If the

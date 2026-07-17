@@ -47,14 +47,14 @@ export function OverlayCanvas({ bridge, width, height }: Props) {
   const screen = { width, height };
 
   const box = useDerivedValue(() => {
-    const r = bridge.faceRect.value;
+    const r = bridge.subjectRect.value;
     if (r == null) return { x: 0, y: 0, width: 0, height: 0 };
     return engineToScreen(r, bridge.frameAspect.value, screen);
   });
   const bracket = useDerivedValue(() =>
-    bridge.faceRect.value == null ? '' : bracketPath(box.value),
+    bridge.subjectRect.value == null ? '' : bracketPath(box.value),
   );
-  const bracketOpacity = useDerivedValue(() => (bridge.faceRect.value == null ? 0 : 1));
+  const bracketOpacity = useDerivedValue(() => (bridge.subjectRect.value == null ? 0 : 1));
   const bracketColor = useDerivedValue(() =>
     bridge.celebrate.value ? BRACKET_NICE_COLOR : BRACKET_COLOR,
   );

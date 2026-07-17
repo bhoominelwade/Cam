@@ -70,6 +70,23 @@ export function frameToEngine(bounds: Rect, frame: FrameSpace): Rect {
   return { x: cx, y: cy, width: clamp01(x + w) - cx, height: clamp01(y + h) - cy };
 }
 
+/**
+ * Already-normalized detector output (e.g. Apple Vision salient objects) →
+ * engine space. Handles the bottom-left-origin Y flip and preview mirroring.
+ */
+export function normalizedToEngine(rect: Rect, yFlip: boolean, mirrored: boolean): Rect {
+  'worklet';
+  let x = rect.x;
+  let y = rect.y;
+  const w = rect.width;
+  const h = rect.height;
+  if (yFlip) y = 1 - (y + h);
+  if (mirrored) x = 1 - (x + w);
+  const cx = clamp01(x);
+  const cy = clamp01(y);
+  return { x: cx, y: cy, width: clamp01(x + w) - cx, height: clamp01(y + h) - cy };
+}
+
 export interface RawFaceAngles {
   pitch: number;
   roll: number;

@@ -1,19 +1,22 @@
-import { computeGuidance, type SceneInput } from '@cam/composition-engine';
+import { computeGuidance, type SceneInput, type Subject } from '@cam/composition-engine';
 import type { Face } from 'react-native-vision-camera-face-detector';
 import {
   ANGLE_SIGN,
   FACE_LOST_TIMEOUT_MS,
   NUDGE_DWELL_MS,
+  SALIENT_FRESH_MS,
   SMOOTHING_ALPHA,
 } from './constants';
 import type { DetectionBridge } from './DetectionBridge';
-import { anglesToEngine, frameToEngine } from './transforms';
+import { arbitrate } from './sceneArbitration';
+import { anglesToEngine, frameToEngine, type Rect } from './transforms';
 
 /**
- * Runs on the frame-processor thread. Takes raw detector output, normalizes
- * the dominant face into engine space, applies low-pass smoothing, runs the
- * composition engine, and writes everything to the DetectionBridge shared
- * values. React is not involved.
+ * Runs on the frame-processor thread every detector tick. Normalizes the
+ * dominant face, arbitrates the scene (faces vs. the salient dish reported
+ * by the object output), runs the composition engine on the winning subject,
+ * and writes everything to the DetectionBridge shared values. React is not
+ * involved.
  */
 export function processFaces(
   faces: Face[],
@@ -37,7 +40,7 @@ export function processFaces(
   const rotated = rotation === 90 || rotation === 270;
   bridge.frameAspect.value = rotated ? frameHeight / frameWidth : frameWidth / frameHeight;
 
-  // Track the dominant (largest) face only — MVP scope.
+  // Dominant (largest) face, normalized to engine space.
   let best: Face | null = null;
   let bestArea = 0;
   for (const face of faces) {
@@ -47,11 +50,41 @@ export function processFaces(
       best = face;
     }
   }
+  const faceTarget =
+    best == null
+      ? null
+      : frameToEngine(best.bounds, { width: frameWidth, height: frameHeight, rotation, mirrored });
 
-  if (best == null) {
+  // --- scene arbitration (ARCH §3) ---
+  const salientFresh = nowMs - bridge.salientSeenAtMs.value < SALIENT_FRESH_MS;
+  const st = arbitrate(
+    {
+      scene: bridge.scene.value,
+      candidate: bridge.sceneCandidate.value,
+      candidateSinceMs: bridge.sceneCandidateSinceMs.value,
+    },
+    {
+      faceArea: faceTarget == null ? 0 : faceTarget.width * faceTarget.height,
+      salientFresh,
+    },
+    nowMs,
+  );
+  bridge.scene.value = st.scene;
+  bridge.sceneCandidate.value = st.candidate;
+  bridge.sceneCandidateSinceMs.value = st.candidateSinceMs;
+
+  // --- pick the subject the winning scene coaches ---
+  let target: Rect | null = null;
+  if (st.scene === 'portrait') {
+    target = faceTarget;
+  } else if (st.scene === 'food') {
+    target = salientFresh ? bridge.salientRect.value : null;
+  }
+
+  if (target == null) {
     // Debounce detector flicker: hold the last state briefly, then drop it.
-    if (bridge.faceRect.value != null && nowMs - bridge.faceSeenAtMs.value > FACE_LOST_TIMEOUT_MS) {
-      bridge.faceRect.value = null;
+    if (bridge.subjectRect.value != null && nowMs - bridge.subjectSeenAtMs.value > FACE_LOST_TIMEOUT_MS) {
+      bridge.subjectRect.value = null;
       bridge.targetZone.value = null;
       bridge.nudge.value = null;
       bridge.hint.value = null;
@@ -61,35 +94,35 @@ export function processFaces(
     return;
   }
 
-  bridge.faceSeenAtMs.value = nowMs;
-  const target = frameToEngine(best.bounds, {
-    width: frameWidth,
-    height: frameHeight,
-    rotation,
-    mirrored,
-  });
-
-  const prev = bridge.faceRect.value;
+  bridge.subjectSeenAtMs.value = nowMs;
+  const prev = bridge.subjectRect.value;
+  const a = SMOOTHING_ALPHA;
   const smoothed =
     prev == null
       ? target
       : {
-          x: prev.x + (target.x - prev.x) * SMOOTHING_ALPHA,
-          y: prev.y + (target.y - prev.y) * SMOOTHING_ALPHA,
-          width: prev.width + (target.width - prev.width) * SMOOTHING_ALPHA,
-          height: prev.height + (target.height - prev.height) * SMOOTHING_ALPHA,
+          x: prev.x + (target.x - prev.x) * a,
+          y: prev.y + (target.y - prev.y) * a,
+          width: prev.width + (target.width - prev.width) * a,
+          height: prev.height + (target.height - prev.height) * a,
         };
-  bridge.faceRect.value = smoothed;
+  bridge.subjectRect.value = smoothed;
 
   // --- composition engine (pure, mirror-agnostic by construction) ---
-  const angles = anglesToEngine(
-    { pitch: best.pitchAngle, roll: best.rollAngle, yaw: best.yawAngle },
-    mirrored,
-    ANGLE_SIGN,
-  );
+  let subject: Subject;
+  if (st.scene === 'portrait' && best != null) {
+    const angles = anglesToEngine(
+      { pitch: best.pitchAngle, roll: best.rollAngle, yaw: best.yawAngle },
+      mirrored,
+      ANGLE_SIGN,
+    );
+    subject = { kind: 'face', boundingBox: smoothed, angles };
+  } else {
+    subject = { kind: 'food', boundingBox: smoothed };
+  }
   const input: SceneInput = {
-    sceneType: 'portrait',
-    subjects: [{ kind: 'face', boundingBox: smoothed, angles }],
+    sceneType: st.scene,
+    subjects: [subject],
     frameAspect: bridge.frameAspect.value,
   };
   const guidance = computeGuidance(input);
