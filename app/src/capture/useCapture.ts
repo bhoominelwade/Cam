@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,8 +29,10 @@ export function useCapture() {
       setStatus('capturing');
       setErrorText(null);
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      let tempPath: string | null = null;
       try {
         const file = await photoOutput.capturePhotoToFile({ flashMode }, {});
+        tempPath = file.filePath;
 
         const permission = await MediaLibrary.requestPermissionsAsync(true);
         if (!permission.granted) {
@@ -45,6 +48,15 @@ export function useCapture() {
         setStatus('error');
         setErrorText("That shot didn't save. Try again.");
       } finally {
+        // No image data lingers in app-private storage on ANY path —
+        // the security promise (PLAN §6.2), not an optimization.
+        if (tempPath != null) {
+          try {
+            new File('file://' + tempPath).delete();
+          } catch {
+            // Best-effort: the OS clears the cache dir eventually.
+          }
+        }
         busy.current = false;
       }
     },

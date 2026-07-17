@@ -1,5 +1,6 @@
 import { BlurView } from 'expo-blur';
-import { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DetectionBridge } from '../detection/DetectionBridge';
 
@@ -15,11 +16,19 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
   const [sizeHint, setSizeHint] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
 
+  const wasCelebrating = useRef(false);
+
   useEffect(() => {
     const id = setInterval(() => {
       setVisible(bridge.subjectRect.value != null);
       setScore(bridge.score.value);
-      setCelebrate(bridge.celebrate.value);
+      const nice = bridge.celebrate.value;
+      setCelebrate(nice);
+      // The haptic tick (S6): one gentle success tap the moment you nail it.
+      if (nice && !wasCelebrating.current) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      wasCelebrating.current = nice;
       const n = bridge.hint.value;
       const food = bridge.scene.value === 'food';
       setSizeHint(

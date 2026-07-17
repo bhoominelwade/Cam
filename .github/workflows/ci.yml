@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
 jobs:
@@ -23,32 +23,41 @@ jobs:
       - run: npm audit --audit-level=high
 
   app:
-    name: app · typecheck + audit + no-network gate
+    name: app · typecheck + tests + audit + no-network gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Typecheck + audit (skipped until app/ exists)
+      - name: Typecheck + tests + audit
         run: |
-          if [ -f app/package.json ]; then
-            cd app
-            npm ci
-            npx tsc --noEmit
-            npm test -- --ci
-            npm audit --audit-level=high
-          else
-            echo "app/ not created yet — skipping"
-          fi
-      - name: No-network gate (ARCH §5 — MVP app code makes zero network calls)
+          cd app
+          npm ci
+          npx tsc --noEmit
+          npm test -- --ci
+          npm audit --audit-level=high
+      - name: No-network gate (ADR-008 — app code makes zero network calls)
+        # Scans ALL first-party TS/JS in app/ and the engine (not just src/),
+        # for imports, globals, dynamic requires, and expo-file-system network
+        # helpers. SECURITY-REVIEW.md M-3 documents scope and limits; builds
+        # must only ever be cut from a green main (e2e-checklists/s7-ship.md).
         run: |
-          if [ -d app/src ]; then
-            if grep -rnE "from ['\"](axios|node-fetch|graphql|apollo|socket\.io)|XMLHttpRequest|WebSocket\(|fetch\(" app/src; then
-              echo "::error::Networking code found in app/src — the MVP ships with zero network calls (ADR-008)."
-              exit 1
-            fi
-            echo "no-network gate passed"
-          else
-            echo "app/src not created yet — skipping"
+          FILES=$(git ls-files 'app/*.ts' 'app/*.tsx' 'app/*.js' 'packages/*.ts' | grep -v node_modules || true)
+          PATTERN="fetch\s*\(|XMLHttpRequest|WebSocket|EventSource|axios|node-fetch|socket\.io|apollo|graphql-request|uploadAsync|downloadAsync|createDownloadResumable|FileSystem\.(download|upload)|require\(['\"](http|axios|node-fetch)"
+          if [ -n "$FILES" ] && echo "$FILES" | xargs grep -nE "$PATTERN" 2>/dev/null; then
+            echo "::error::Networking code found in first-party sources — the MVP ships with zero network calls (ADR-008)."
+            exit 1
           fi
+          echo "no-network gate passed ($(echo "$FILES" | wc -l) files scanned)"
+
+  secrets:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
