@@ -36,6 +36,7 @@ jobs:
             cd app
             npm ci
             npx tsc --noEmit
+            npm test -- --ci
             npm audit --audit-level=high
           else
             echo "app/ not created yet — skipping"

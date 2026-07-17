@@ -1,18 +1,66 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import {
+  AppState,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
+import {
+  Camera,
+  useAsyncRunner,
+  useCameraDevice,
+  useCameraPermission,
+  useFrameOutput,
+} from 'react-native-vision-camera';
+import { useFaceDetector } from 'react-native-vision-camera-face-detector';
+import { DETECTION_INTERVAL_MS } from '../detection/constants';
+import { useDetectionBridge } from '../detection/DetectionBridge';
+import { processFaces } from '../detection/processFaces';
+import { DebugHud } from '../overlay/DebugHud';
+import { OverlayCanvas } from '../overlay/OverlayCanvas';
 
 /**
- * S0: the viewfinder. Live preview, camera permission flow, designed denial
- * state (ARCH §5: no permission, no crash, ever). Detection, overlays, and
- * capture arrive in later slices.
+ * S1: the spike. Front camera + face detection on the frame-processor thread,
+ * thirds grid + smoothed tracking box drawn by Skia. The go/no-go question:
+ * does this feel great while panning? (PLAN §4)
  */
 export function CameraScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
+  const device = useCameraDevice('front');
   const [isForeground, setIsForeground] = useState(true);
+  const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
 
-  // Re-check permission when returning from Settings.
+  const bridge = useDetectionBridge();
+  // Don't destructure — Nitro hybrid objects lose their `this` binding.
+  const faceDetector = useFaceDetector({ performanceMode: 'fast', cameraFacing: 'front' });
+  const asyncRunner = useAsyncRunner();
+
+  const frameOutput = useFrameOutput({
+    enablePreviewSizedOutputBuffers: true,
+    onFrame(frame) {
+      'worklet';
+      const now = Date.now();
+      // Throttle to the 10–15/sec detection budget (ARCH §4).
+      if (now - bridge.lastRunAtMs.value < DETECTION_INTERVAL_MS) {
+        frame.dispose();
+        return;
+      }
+      const wasHandled = asyncRunner.runAsync(() => {
+        'worklet';
+        const faces = faceDetector.detectFaces(frame);
+        processFaces(faces, frame.width, frame.height, Date.now(), bridge);
+        frame.dispose();
+      });
+      if (!wasHandled) {
+        // Runner still busy with the previous frame — drop this one.
+        frame.dispose();
+      }
+    },
+  });
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       setIsForeground(state === 'active');
@@ -28,6 +76,11 @@ export function CameraScreen() {
 
   const openSettings = useCallback(() => {
     void Linking.openSettings();
+  }, []);
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setLayout({ width, height });
   }, []);
 
   if (!hasPermission) {
@@ -50,15 +103,24 @@ export function CameraScreen() {
       <View style={styles.fallback}>
         <Text style={styles.fallbackTitle}>No camera found</Text>
         <Text style={styles.fallbackBody}>
-          This device doesn&apos;t report a back camera. Cam can&apos;t run here.
+          This device doesn&apos;t report a front camera. Cam can&apos;t run here.
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Camera style={StyleSheet.absoluteFill} device={device} isActive={isForeground} />
+    <View style={styles.container} onLayout={onLayout}>
+      <Camera
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={isForeground}
+        outputs={[frameOutput]}
+      />
+      {layout != null && (
+        <OverlayCanvas bridge={bridge} width={layout.width} height={layout.height} />
+      )}
+      <DebugHud bridge={bridge} />
     </View>
   );
 }
