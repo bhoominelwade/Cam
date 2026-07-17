@@ -1,11 +1,13 @@
+import { BlurView } from 'expo-blur';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DetectionBridge } from '../detection/DetectionBridge';
 
 /**
- * Live composition score. Polls the bridge at 4 Hz on the JS thread — a number
- * changing 4×/sec reads as live to a human without touching the hot path
- * (the Skia guides are the ones that must move at full rate, and do).
+ * Liquid-glass score capsule: real blur behind a translucent pill, a status
+ * dot that lights iOS-green on a great shot, and a small glass hint chip for
+ * closer/back cues. Polls the bridge at 4 Hz on the JS thread — deliberately
+ * off the hot path (ADR-006); the Skia guides carry the full frame rate.
  */
 export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
   const [score, setScore] = useState(0);
@@ -19,7 +21,7 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
       setScore(bridge.score.value);
       setCelebrate(bridge.celebrate.value);
       const n = bridge.nudge.value;
-      setSizeHint(n?.direction === 'closer' ? 'come closer' : n?.direction === 'back' ? 'step back' : null);
+      setSizeHint(n?.direction === 'closer' ? 'move closer' : n?.direction === 'back' ? 'step back' : null);
     }, 250);
     return () => clearInterval(id);
   }, [bridge]);
@@ -28,11 +30,15 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
 
   return (
     <View style={styles.wrap} pointerEvents="none">
-      <View style={[styles.badge, celebrate && styles.badgeNice]}>
-        <Text style={[styles.score, celebrate && styles.scoreNice]}>{score}</Text>
-        {celebrate ? <Text style={styles.nice}>nice</Text> : null}
-      </View>
-      {sizeHint ? <Text style={styles.hint}>{sizeHint}</Text> : null}
+      <BlurView intensity={40} tint="dark" style={[styles.pill, celebrate && styles.pillNice]}>
+        <View style={[styles.dot, celebrate && styles.dotNice]} />
+        <Text style={styles.score}>{score}</Text>
+      </BlurView>
+      {sizeHint ? (
+        <BlurView intensity={40} tint="dark" style={styles.hintChip}>
+          <Text style={styles.hint}>{sizeHint}</Text>
+        </BlurView>
+      ) : null}
     </View>
   );
 }
@@ -40,45 +46,60 @@ export function ScoreBadge({ bridge }: { bridge: DetectionBridge }) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    bottom: 48,
+    bottom: 120,
     alignSelf: 'center',
     alignItems: 'center',
     gap: 8,
   },
-  badge: {
+  pill: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(80,80,85,0.32)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
-  badgeNice: {
-    backgroundColor: 'rgba(38, 130, 8, 0.75)',
+  pillNice: {
+    backgroundColor: 'rgba(48,209,88,0.30)',
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  dotNice: {
+    backgroundColor: '#30D158',
+    shadowColor: '#30D158',
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
   },
   score: {
     color: '#fff',
-    fontSize: 28,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  scoreNice: {
-    color: '#d8ffc4',
-  },
-  nice: {
-    color: '#d8ffc4',
-    fontSize: 15,
+    fontSize: 19,
     fontWeight: '600',
+    letterSpacing: -0.2,
+    fontVariant: ['tabular-nums'],
+    minWidth: 26,
+    textAlign: 'center',
   },
-  hint: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+  hintChip: {
+    borderRadius: 999,
+    paddingHorizontal: 13,
     paddingVertical: 4,
     overflow: 'hidden',
+    backgroundColor: 'rgba(80,80,85,0.32)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  hint: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 11,
+    fontWeight: '500',
   },
 });
