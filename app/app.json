@@ -15,7 +15,9 @@
     },
     "android": {
       "package": "com.astlin.cam",
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,6 +26,14 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "plugins": ["expo-dev-client"]
+    "plugins": [
+      "expo-dev-client"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ca0f00bb-49d9-4684-8d84-a2b06ee1b79f"
+      }
+    },
+    "owner": "sensaisatori"
   }
 }
