@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Cam",
+    "slug": "cam",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.astlin.cam"
+    },
+    "android": {
+      "package": "com.astlin.cam",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Cam uses the camera to show your live viewfinder and coach your shot. Nothing ever leaves your phone.",
+          "enableMicrophonePermission": false
+        }
+      ]
+    ]
+  }
+}
