@@ -87,7 +87,9 @@ export function processFaces(
   };
   const guidance = computeGuidance(input);
 
-  bridge.score.value = guidance.score;
+  // EMA on the displayed score so the number glides instead of jittering
+  // with per-frame detector noise. Celebrate stays computed from raw score.
+  bridge.score.value = Math.round(bridge.score.value * 0.6 + guidance.score * 0.4);
   bridge.celebrate.value = guidance.celebrate;
 
   const zone = guidance.guides.find((g) => g.kind === 'targetZone');

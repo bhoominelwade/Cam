@@ -33,6 +33,10 @@ export function OverlayCanvas({ bridge, width, height }: Props) {
   const boxW = useDerivedValue(() => box.value.width);
   const boxH = useDerivedValue(() => box.value.height);
   const boxOpacity = useDerivedValue(() => (bridge.faceRect.value == null ? 0 : 1));
+  const boxColor = useDerivedValue(() =>
+    bridge.celebrate.value ? 'rgba(168, 255, 96, 1)' : BOX_COLOR,
+  );
+  const boxStroke = useDerivedValue(() => (bridge.celebrate.value ? 3.5 : 2));
 
   const zone = useDerivedValue(() => {
     const r = bridge.targetZone.value;
@@ -102,9 +106,9 @@ export function OverlayCanvas({ bridge, width, height }: Props) {
         y={boxY}
         width={boxW}
         height={boxH}
-        color={BOX_COLOR}
+        color={boxColor}
         style="stroke"
-        strokeWidth={2}
+        strokeWidth={boxStroke}
         opacity={boxOpacity}
       />
       <Path
