@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  engine:
+    name: composition-engine · typecheck + tests + audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/composition-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm audit --audit-level=high
+
+  app:
+    name: app · typecheck + audit + no-network gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Typecheck + audit (skipped until app/ exists)
+        run: |
+          if [ -f app/package.json ]; then
+            cd app
+            npm ci
+            npx tsc --noEmit
+            npm audit --audit-level=high
+          else
+            echo "app/ not created yet — skipping"
+          fi
+      - name: No-network gate (ARCH §5 — MVP app code makes zero network calls)
+        run: |
+          if [ -d app/src ]; then
+            if grep -rnE "from ['\"](axios|node-fetch|graphql|apollo|socket\.io)|XMLHttpRequest|WebSocket\(|fetch\(" app/src; then
+              echo "::error::Networking code found in app/src — the MVP ships with zero network calls (ADR-008)."
+              exit 1
+            fi
+            echo "no-network gate passed"
+          else
+            echo "app/src not created yet — skipping"
+          fi
