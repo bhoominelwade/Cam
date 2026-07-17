@@ -19,7 +19,8 @@
     "react-native-vision-camera": "5.1.1",
     "react-native-vision-camera-face-detector": "2.0.6",
     "react-native-vision-camera-worklets": "5.1.1",
-    "react-native-worklets": "0.10.0"
+    "react-native-worklets": "0.10.0",
+    "zustand": "5.0.8"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",

@@ -14,6 +14,10 @@ export interface DetectionBridge {
   faceRect: SharedValue<Rect | null>;
   /** width / height of the frame in engine (display) orientation. */
   frameAspect: SharedValue<number>;
+  /** Sensor→engine rotation for the ACTIVE camera (set on flip, ADR-006 slow→fast handoff). */
+  rotation: SharedValue<0 | 90 | 180 | 270>;
+  /** Whether the ACTIVE camera's preview is mirrored (front = true). */
+  isMirrored: SharedValue<boolean>;
   /** Exponential moving average of detector runs per second (debug HUD). */
   detectionFps: SharedValue<number>;
   /** Timestamp (ms) of the last detector run — used for throttling. */
@@ -39,6 +43,8 @@ export interface DetectionBridge {
 export function useDetectionBridge(): DetectionBridge {
   const faceRect = useSharedValue<Rect | null>(null);
   const frameAspect = useSharedValue(3 / 4);
+  const rotation = useSharedValue<0 | 90 | 180 | 270>(90);
+  const isMirrored = useSharedValue(true);
   const detectionFps = useSharedValue(0);
   const lastRunAtMs = useSharedValue(0);
   const faceSeenAtMs = useSharedValue(0);
@@ -53,6 +59,8 @@ export function useDetectionBridge(): DetectionBridge {
     () => ({
       faceRect,
       frameAspect,
+      rotation,
+      isMirrored,
       detectionFps,
       lastRunAtMs,
       faceSeenAtMs,
@@ -63,6 +71,6 @@ export function useDetectionBridge(): DetectionBridge {
       nudgeChangedAtMs,
       targetZone,
     }),
-    [faceRect, frameAspect, detectionFps, lastRunAtMs, faceSeenAtMs, score, celebrate, nudge, hint, nudgeChangedAtMs, targetZone],
+    [faceRect, frameAspect, rotation, isMirrored, detectionFps, lastRunAtMs, faceSeenAtMs, score, celebrate, nudge, hint, nudgeChangedAtMs, targetZone],
   );
 }

@@ -17,9 +17,11 @@ import {
   useFrameOutput,
 } from 'react-native-vision-camera';
 import { useFaceDetector } from 'react-native-vision-camera-face-detector';
+import { BlurView } from 'expo-blur';
 import { CaptureControls } from '../capture/CaptureControls';
 import { useCapture } from '../capture/useCapture';
-import { DETECTION_INTERVAL_MS } from '../detection/constants';
+import { CAMERA_TUNING, DETECTION_INTERVAL_MS } from '../detection/constants';
+import { useAppStore } from '../state/store';
 import { useDetectionBridge } from '../detection/DetectionBridge';
 import { processFaces } from '../detection/processFaces';
 import { DebugHud } from '../overlay/DebugHud';
@@ -33,14 +35,30 @@ import { ScoreBadge } from '../overlay/ScoreBadge';
  */
 export function CameraScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('front');
+  const position = useAppStore((s) => s.position);
+  const flashMode = useAppStore((s) => s.flashMode);
+  const sceneMode = useAppStore((s) => s.sceneMode);
+  const flipCamera = useAppStore((s) => s.flipCamera);
+  const cycleFlash = useAppStore((s) => s.cycleFlash);
+  const device = useCameraDevice(position);
   const [isForeground, setIsForeground] = useState(true);
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
 
   const bridge = useDetectionBridge();
   // Don't destructure — Nitro hybrid objects lose their `this` binding.
-  const faceDetector = useFaceDetector({ performanceMode: 'fast', cameraFacing: 'front' });
+  const faceDetector = useFaceDetector({ performanceMode: 'fast', cameraFacing: position });
   const asyncRunner = useAsyncRunner();
+
+  // Slow→fast plane handoff: retune coordinate conversion when the camera flips.
+  useEffect(() => {
+    const tuning = CAMERA_TUNING[position === 'front' ? 'front' : 'back'];
+    bridge.rotation.value = tuning.rotation;
+    bridge.isMirrored.value = tuning.mirrored;
+    bridge.faceRect.value = null; // drop stale geometry from the other camera
+    bridge.targetZone.value = null;
+    bridge.nudge.value = null;
+    bridge.hint.value = null;
+  }, [position, bridge]);
   const { photoOutput, capture, status, errorText } = useCapture();
 
   // White blink over the viewfinder on capture.
@@ -49,8 +67,8 @@ export function CameraScreen() {
   const onShutter = useCallback(() => {
     flashOpacity.value = 0.85;
     flashOpacity.value = withTiming(0, { duration: 320 });
-    void capture('off');
-  }, [capture, flashOpacity]);
+    void capture(flashMode);
+  }, [capture, flashOpacity, flashMode]);
 
   const frameOutput = useFrameOutput({
     enablePreviewSizedOutputBuffers: true,
@@ -130,7 +148,16 @@ export function CameraScreen() {
         device={device}
         isActive={isForeground}
         outputs={[frameOutput, photoOutput]}
+        enableNativeTapToFocusGesture
+        enableNativeZoomGesture
       />
+      <Pressable onPress={cycleFlash} style={styles.flashChipWrap} accessibilityLabel="Flash mode">
+        <BlurView intensity={40} tint="dark" style={styles.flashChip}>
+          <Text style={[styles.flashText, flashMode !== 'off' && styles.flashTextOn]}>
+            {flashMode === 'off' ? '⚡︎ off' : flashMode === 'on' ? '⚡︎ on' : '⚡︎ auto'}
+          </Text>
+        </BlurView>
+      </Pressable>
       {layout != null && (
         <OverlayCanvas bridge={bridge} width={layout.width} height={layout.height} />
       )}
@@ -142,7 +169,7 @@ export function CameraScreen() {
           <Text style={styles.errorText}>{errorText}</Text>
         </View>
       )}
-      <CaptureControls mode="portrait" onShutter={onShutter} disabled={status === 'capturing'} />
+      <CaptureControls mode={sceneMode} onShutter={onShutter} onFlip={flipCamera} disabled={status === 'capturing'} />
     </View>
   );
 }
@@ -154,6 +181,28 @@ const styles = StyleSheet.create({
   },
   captureFlash: {
     backgroundColor: '#fff',
+  },
+  flashChipWrap: {
+    position: 'absolute',
+    top: 60,
+    left: 12,
+  },
+  flashChip: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(80,80,85,0.32)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+  },
+  flashText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  flashTextOn: {
+    color: '#FFD60A',
   },
   errorChip: {
     position: 'absolute',

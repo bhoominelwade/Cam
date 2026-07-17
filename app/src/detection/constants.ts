@@ -20,13 +20,14 @@ export const FACE_LOST_TIMEOUT_MS = 300;
 export const NUDGE_DWELL_MS = 300;
 
 /**
- * §8.4 gotcha knobs — expected values for iPhone portrait + front camera.
- * The front sensor delivers landscape frames and the preview is mirrored.
- * If the box tracks with wrong geometry on-device, these two are the first
- * things to flip (see e2e-checklists/s1-face-spike.md).
+ * §8.4 gotcha knobs — expected values for iPhone portrait orientation.
+ * Sensors deliver landscape frames; the front preview is mirrored. If the
+ * box tracks with wrong geometry on-device, these are the first things to
+ * flip, per camera (see e2e-checklists/s1-face-spike.md and s4).
  */
-export const FRONT_PREVIEW_MIRRORED = true;
-/** Clockwise degrees from sensor frame to portrait engine space: 0 | 90 | 180 | 270. */
-export const FRAME_ROTATION_PORTRAIT = 90;
+export const CAMERA_TUNING = {
+  front: { rotation: 90, mirrored: true },
+  back: { rotation: 90, mirrored: false },
+} as const;
 /** Flip to -1 if tilt cues read backwards on-device (ML Kit sign convention check). */
 export const ANGLE_SIGN: 1 | -1 = 1;

@@ -3,8 +3,6 @@ import type { Face } from 'react-native-vision-camera-face-detector';
 import {
   ANGLE_SIGN,
   FACE_LOST_TIMEOUT_MS,
-  FRAME_ROTATION_PORTRAIT,
-  FRONT_PREVIEW_MIRRORED,
   NUDGE_DWELL_MS,
   SMOOTHING_ALPHA,
 } from './constants';
@@ -34,7 +32,9 @@ export function processFaces(
   }
   bridge.lastRunAtMs.value = nowMs;
 
-  const rotated = FRAME_ROTATION_PORTRAIT === 90 || FRAME_ROTATION_PORTRAIT === 270;
+  const rotation = bridge.rotation.value;
+  const mirrored = bridge.isMirrored.value;
+  const rotated = rotation === 90 || rotation === 270;
   bridge.frameAspect.value = rotated ? frameHeight / frameWidth : frameWidth / frameHeight;
 
   // Track the dominant (largest) face only — MVP scope.
@@ -65,8 +65,8 @@ export function processFaces(
   const target = frameToEngine(best.bounds, {
     width: frameWidth,
     height: frameHeight,
-    rotation: FRAME_ROTATION_PORTRAIT,
-    mirrored: FRONT_PREVIEW_MIRRORED,
+    rotation,
+    mirrored,
   });
 
   const prev = bridge.faceRect.value;
@@ -84,7 +84,7 @@ export function processFaces(
   // --- composition engine (pure, mirror-agnostic by construction) ---
   const angles = anglesToEngine(
     { pitch: best.pitchAngle, roll: best.rollAngle, yaw: best.yawAngle },
-    FRONT_PREVIEW_MIRRORED,
+    mirrored,
     ANGLE_SIGN,
   );
   const input: SceneInput = {
