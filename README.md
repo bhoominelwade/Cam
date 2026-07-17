@@ -38,7 +38,19 @@ npm test
 
 ## Slice status
 
-- [x] Skeleton repo + CI green on the (empty) engine package
-- [ ] **S0** — live camera preview on iPhone (branch `s0-skeleton`)
-- [ ] **S1** — face-tracking spike ⚠ go/no-go gate
-- [ ] S2–S7 — see [docs/PLAN.md](docs/PLAN.md) §4
+All slices are **code-complete, unit-tested, and pushed** as a stacked branch chain; each stays unmerged until its on-device check passes (PLAN §6.1). The chain (each contains all previous):
+
+`s0-skeleton` → `s1-face-spike` → `s2-engine-v1` → `s3-capture` → `s4-table-stakes` → `s5-food` → `s6-polish`
+
+| Slice | Code | Device check |
+|---|---|---|
+| S0 viewfinder | ✅ | ⏳ [checklist](e2e-checklists/s0-skeleton.md) |
+| S1 face spike ⚠ go/no-go | ✅ | ⏳ [checklist](e2e-checklists/s1-face-spike.md) |
+| S2 engine v1.1 (portrait + angles, 35 tests) | ✅ | ⏳ [checklist](e2e-checklists/s2-engine.md) |
+| S3 capture → gallery | ✅ | ⏳ [checklist](e2e-checklists/s3-capture.md) |
+| S4 flip/flash/focus/zoom | ✅ | ⏳ [checklist](e2e-checklists/s4-table-stakes.md) |
+| S5 food scene + arbitration | ✅ | ⏳ [checklist](e2e-checklists/s5-food.md) |
+| S6 polish (liquid glass, haptics) | ✅ | ⏳ [stranger test](e2e-checklists/s6-polish.md) |
+| S7 TestFlight | docs ready | gated on S0–S6 + [SECURITY-REVIEW](https://github.com/bhoominelwade/Cam/blob/s6-polish/SECURITY-REVIEW.md) re-check |
+
+**To test everything:** enroll in the Apple Developer Program, then from `app/` on `s6-polish`: `npx eas-cli device:create` → `npx eas-cli build --profile development --platform ios` → walk the checklists in order.
