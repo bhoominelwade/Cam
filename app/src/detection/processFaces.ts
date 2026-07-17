@@ -1,8 +1,10 @@
+import { computeGuidance, type SceneInput } from '@cam/composition-engine';
 import type { Face } from 'react-native-vision-camera-face-detector';
 import {
   FACE_LOST_TIMEOUT_MS,
   FRAME_ROTATION_PORTRAIT,
   FRONT_PREVIEW_MIRRORED,
+  NUDGE_DWELL_MS,
   SMOOTHING_ALPHA,
 } from './constants';
 import type { DetectionBridge } from './DetectionBridge';
@@ -10,8 +12,9 @@ import { frameToEngine } from './transforms';
 
 /**
  * Runs on the frame-processor thread. Takes raw detector output, normalizes
- * the dominant face into engine space, applies low-pass smoothing, and writes
- * the result to the DetectionBridge shared values. React is not involved.
+ * the dominant face into engine space, applies low-pass smoothing, runs the
+ * composition engine, and writes everything to the DetectionBridge shared
+ * values. React is not involved.
  */
 export function processFaces(
   faces: Face[],
@@ -33,7 +36,7 @@ export function processFaces(
   const rotated = FRAME_ROTATION_PORTRAIT === 90 || FRAME_ROTATION_PORTRAIT === 270;
   bridge.frameAspect.value = rotated ? frameHeight / frameWidth : frameWidth / frameHeight;
 
-  // Track the dominant (largest) face only — S1 scope.
+  // Track the dominant (largest) face only — MVP scope.
   let best: Face | null = null;
   let bestArea = 0;
   for (const face of faces) {
@@ -45,9 +48,13 @@ export function processFaces(
   }
 
   if (best == null) {
-    // Debounce detector flicker: hold the last box briefly, then drop it.
+    // Debounce detector flicker: hold the last state briefly, then drop it.
     if (bridge.faceRect.value != null && nowMs - bridge.faceSeenAtMs.value > FACE_LOST_TIMEOUT_MS) {
       bridge.faceRect.value = null;
+      bridge.targetZone.value = null;
+      bridge.nudge.value = null;
+      bridge.score.value = 0;
+      bridge.celebrate.value = false;
     }
     return;
   }
@@ -61,15 +68,50 @@ export function processFaces(
   });
 
   const prev = bridge.faceRect.value;
-  if (prev == null) {
-    bridge.faceRect.value = target;
-  } else {
-    const a = SMOOTHING_ALPHA;
-    bridge.faceRect.value = {
-      x: prev.x + (target.x - prev.x) * a,
-      y: prev.y + (target.y - prev.y) * a,
-      width: prev.width + (target.width - prev.width) * a,
-      height: prev.height + (target.height - prev.height) * a,
-    };
+  const smoothed =
+    prev == null
+      ? target
+      : {
+          x: prev.x + (target.x - prev.x) * SMOOTHING_ALPHA,
+          y: prev.y + (target.y - prev.y) * SMOOTHING_ALPHA,
+          width: prev.width + (target.width - prev.width) * SMOOTHING_ALPHA,
+          height: prev.height + (target.height - prev.height) * SMOOTHING_ALPHA,
+        };
+  bridge.faceRect.value = smoothed;
+
+  // --- composition engine (pure, mirror-agnostic by construction) ---
+  const input: SceneInput = {
+    sceneType: 'portrait',
+    subjects: [{ kind: 'face', boundingBox: smoothed }],
+    frameAspect: bridge.frameAspect.value,
+  };
+  const guidance = computeGuidance(input);
+
+  bridge.score.value = guidance.score;
+  bridge.celebrate.value = guidance.celebrate;
+
+  const zone = guidance.guides.find((g) => g.kind === 'targetZone');
+  bridge.targetZone.value = zone?.region ?? null;
+
+  // Nudge hysteresis (ARCH §4): a displayed cue must dwell ≥ NUDGE_DWELL_MS
+  // before it can switch or disappear — prevents cue-flapping.
+  const nextNudge = guidance.nudges.length > 0 ? guidance.nudges[0]! : null;
+  const current = bridge.nudge.value;
+  const dwellOver = nowMs - bridge.nudgeChangedAtMs.value >= NUDGE_DWELL_MS;
+  if (current == null && nextNudge != null) {
+    bridge.nudge.value = nextNudge;
+    bridge.nudgeChangedAtMs.value = nowMs;
+  } else if (current != null && nextNudge == null) {
+    if (dwellOver) {
+      bridge.nudge.value = null;
+      bridge.nudgeChangedAtMs.value = nowMs;
+    }
+  } else if (current != null && nextNudge != null) {
+    if (current.direction === nextNudge.direction) {
+      bridge.nudge.value = nextNudge; // same cue, fresher strength — no dwell reset
+    } else if (dwellOver) {
+      bridge.nudge.value = nextNudge;
+      bridge.nudgeChangedAtMs.value = nowMs;
+    }
   }
 }

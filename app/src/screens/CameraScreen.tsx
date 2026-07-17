@@ -21,6 +21,7 @@ import { useDetectionBridge } from '../detection/DetectionBridge';
 import { processFaces } from '../detection/processFaces';
 import { DebugHud } from '../overlay/DebugHud';
 import { OverlayCanvas } from '../overlay/OverlayCanvas';
+import { ScoreBadge } from '../overlay/ScoreBadge';
 
 /**
  * S1: the spike. Front camera + face detection on the frame-processor thread,
@@ -120,6 +121,7 @@ export function CameraScreen() {
       {layout != null && (
         <OverlayCanvas bridge={bridge} width={layout.width} height={layout.height} />
       )}
+      <ScoreBadge bridge={bridge} />
       <DebugHud bridge={bridge} />
     </View>
   );

@@ -16,6 +16,9 @@ export const SMOOTHING_ALPHA = 0.35;
 /** Drop the face box after this long without a detection (debounces detector flicker). */
 export const FACE_LOST_TIMEOUT_MS = 300;
 
+/** Minimum time a nudge stays on screen before it may switch or clear (ARCH §4). */
+export const NUDGE_DWELL_MS = 300;
+
 /**
  * §8.4 gotcha knobs — expected values for iPhone portrait + front camera.
  * The front sensor delivers landscape frames and the preview is mirrored.
